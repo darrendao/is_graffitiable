@@ -13,8 +13,9 @@ module IsGraffitiable
       
   module ClassMethods
     def is_graffitiable
-      has_many :graffitis, :as => :graffitiable
-          
+      has_many :graffitis, :as => :graffitiable, :dependent => :destroy
+
+      before_validation :initialize_graffitis, :validate_graffitis
       after_create :save_graffitis
       after_update :save_graffitis
           
@@ -31,27 +32,45 @@ module IsGraffitiable
       @graffiti_map
     end
 
-    def save_graffitis
+    def initialize_graffitis
       return unless @graffiti_map
-        
       new_graffiti_map = @graffiti_map.clone
-      updated_graffiti_map = {}
- 
+      @new_graffitis = []
+
       graffitis.each do |graffiti|
         new_graffiti_map.delete(graffiti.name)
       end
 
-      old_graffitis = graffitis.reject{|graffiti| @graffiti_map.keys.include?(graffiti.name)}
-          
-      self.class.transaction do
-        if old_graffitis.any?
-          old_graffitis.each(&:destroy)
-        end
-        new_graffiti_map.each do |key,value|
-          graffitis << Graffiti.create(:name => key, :value => value)
+      @old_graffitis = graffitis.reject{|graffiti| @graffiti_map.keys.include?(graffiti.name)}
+
+      new_graffiti_map.each do |key,value|
+        @new_graffitis << Graffiti.create(:name => key, :value => value)
+      end
+    end
+
+    def validate_graffitis
+      return true unless @graffiti_map
+
+      @new_graffitis.each do |graffiti|
+        unless graffiti.valid?
+          errors.add("Graffiti", "is invalid")
+          return false
         end
       end
-          
+      return true
+    end
+ 
+    def save_graffitis
+      return unless @graffiti_map
+        
+      self.class.transaction do
+        if @old_graffitis.any?
+          @old_graffitis.each(&:destroy)
+        end
+        @new_graffitis.each do |graffiti|
+          graffitis << graffiti
+        end
+      end
       true
     end
   end # InstanceMethods
