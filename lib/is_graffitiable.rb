@@ -52,7 +52,10 @@ module IsGraffitiable
       return true unless @graffiti_map
 
       @new_graffitis.each do |graffiti|
-        unless graffiti.valid?
+        # ideally we want to use graffiti.valid? method. However, at this point,
+        # graffitiable_id and graffitiable_type hasn't been set yet. So we'll just have to do
+        # our own validation here
+        if graffiti.name.empty? or graffiti.value.empty?
           errors.add("Graffiti", "is invalid")
           return false
         end
